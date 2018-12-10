@@ -1,0 +1,9 @@
+[package]
+name = "xanadu"
+version = "0.1.0"
+authors = ["Max Morehead <moreheadmax@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+shakmaty = "0.13"
+rand = "0.6"
