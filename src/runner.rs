@@ -5,6 +5,7 @@ use std::str::Split;
 use shakmaty::{Chess, Position, Move};
 use shakmaty::fen;
 use shakmaty::uci::Uci;
+use std::str::FromStr;
 
 use super::engine;
 use super::engine::Engine;
@@ -12,7 +13,25 @@ use super::engine::Engine;
 fn output_best_move(position: &Chess, best_move: &Move) {
     let uci = Uci::from_move(position, best_move);
 
+    eprintln!("bestmove {}", uci);
     println!("bestmove {}", uci);
+}
+
+fn get_fen_string(tokens: &mut Split<char>) -> String {
+    let mut fen_string = String::new();
+    let mut first = true;
+    loop {
+        match tokens.next() {
+            None => break,
+            Some("moves") => break,
+            Some(fen_part) => {
+                if !first { fen_string.push(' ') }
+                fen_string.push_str(fen_part);
+            },
+        }
+        first = false;
+    };
+    fen_string
 }
 
 // UCI implementation based on http://wbec-ridderkerk.nl/html/UCIProtocol.html
@@ -66,6 +85,8 @@ impl Runner {
 
     fn process(&mut self, line: &String) -> bool {
         let mut tokens = line.as_str().split(' ');
+        eprintln!("Line from GUI {}", line.as_str());
+
         match tokens.next() {
             Some(command) => match command {
                 "uci" => self.uci_cmd(),
@@ -87,6 +108,7 @@ impl Runner {
     }
 
     fn cleanup(&mut self) {
+        eprintln!("Exiting xanadu");
 
     }
 
@@ -115,23 +137,15 @@ impl Runner {
     }
 
     fn position_cmd(&mut self, tokens: &mut Split<char>) {
-        let position = match tokens.next() {
+        let mut position = match tokens.next() {
             Some("startpos") => {
                 tokens.next(); // consume "moves"
                 Chess::default()
             },
             Some(fen_start) => {
-                let mut fen_string = fen_start.to_string();
-                loop {
-                    match tokens.next() {
-                        None => break,
-                        Some("moves") => break,
-                        Some(fen_part) => {
-                            fen_string.push_str(fen_part);
-                        },
-                    }
-                };
+                let fen_string = get_fen_string(tokens);
 
+                eprintln!("{}", fen_string.as_str());
                 match fen::Fen::from_ascii(fen_string.as_bytes()) {
                     Ok(pos_fen) => match pos_fen.position() {
                         Ok(pos) => pos,
@@ -152,6 +166,14 @@ impl Runner {
                 return;
             }
         };
+
+        for uci_str in tokens {
+            //eprintln!("{}", uci_str);
+            let mov = Uci::from_str(uci_str).expect("Invalid UCI str").
+                    to_move(&position).expect("Invalid UCI move");
+
+            position = position.play(&mov).expect("Illegal move");
+        }
 
         self.engine.set_position(position);
     }
@@ -183,11 +205,11 @@ impl Runner {
     }
 
     fn stop_cmd(&mut self, tokens: &mut Split<char>) {
-        //let best_move = self.engine.get_best_move();
-        output_best_move(
-                self.engine.get_current_position(),
-                self.engine.get_best_move().expect("ERROR, no best move"));
-
+        let best_move = self.engine.get_best_move();
+        match best_move { 
+            Some(m) => output_best_move(self.engine.get_current_position(), m),
+            None => (),
+        }
         self.engine.deactivate();
     }
 
@@ -196,5 +218,11 @@ impl Runner {
     fn ponderhit_cmd(&mut self, tokens: &mut Split<char>) {
         eprintln!("ponderhit unsupported, ignoring");
     }
+
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
 
 }
