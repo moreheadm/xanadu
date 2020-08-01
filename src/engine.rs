@@ -4,7 +4,7 @@ use rand::prelude::*;
 
 //https://www.chessprogramming.org/Simplified_Evaluation_Function
 
-const king_value: [i32; 64] =
+const KING_VALUE: [i32; 64] =
     [ 20, 30, 10,  0,  0, 10, 30, 20,
       20, 20,  0,  0,  0,  0, 20, 20,
      -10,-20,-20,-20,-20,-20,-20,-10,
@@ -15,7 +15,7 @@ const king_value: [i32; 64] =
      -30,-40,-40,-50,-50,-40,-40,-30];
 
 
-const queen_value: [i32; 64] = 
+const QUEEN_VALUE: [i32; 64] =
     [-20,-10,-10, -5, -5,-10,-10,-20,
      -10,  0,  5,  0,  0,  0,  0,-10,
      -10,  5,  5,  5,  5,  5,  0,-10,
@@ -25,7 +25,7 @@ const queen_value: [i32; 64] =
      -10,  0,  0,  0,  0,  0,  0,-10,
      -20,-10,-10, -5, -5,-10,-10,-20];
 
-const rook_value: [i32; 64] = 
+const ROOK_VALUE: [i32; 64] =
     [  0,  0,  0,  5,  5,  0,  0,  0,
       -5,  0,  0,  0,  0,  0,  0, -5,
       -5,  0,  0,  0,  0,  0,  0, -5,
@@ -35,7 +35,7 @@ const rook_value: [i32; 64] =
        5, 10, 10, 10, 10, 10, 10, 10,
        0,  0,  0,  0,  0,  0,  0,  0];
 
-const knight_value: [i32; 64] = 
+const KNIGHT_VALUE: [i32; 64] =
     [-50,-40,-30,-30,-30,-30,-40,-50,
      -40,-20,  0,  0,  0,  0,-20,-40,
      -30,  0, 10, 15, 15, 10,  0,-30,
@@ -45,7 +45,7 @@ const knight_value: [i32; 64] =
      -40,-20,  0,  0,  0,  0,-20,-40,
      -50,-40,-30,-30,-30,-30,-40,-50];
 
-const bishop_value: [i32; 64] =
+const BISHOP_VALUE: [i32; 64] =
     [-20,-10,-10,-10,-10,-10,-10,-20,
      -10,  5,  0,  0,  0,  0,  0,-10,
      -10, 10, 10, 10, 10, 10, 10,-10,
@@ -55,7 +55,7 @@ const bishop_value: [i32; 64] =
      -10,  0,  0,  0,  0,  0,  0,-10,
      -20,-10,-10,-10,-10,-10,-10,-20];
 
-const pawn_value: [i32; 64] = 
+const PAWN_VALUE: [i32; 64] =
     [  0,  0,  0,  0,  0,  0,  0,  0,
        5, 10, 10,-20,-20, 10, 10,  5,
        5, -5,-10,  0,  0,-10, -5,  5,
@@ -64,8 +64,6 @@ const pawn_value: [i32; 64] =
       10, 10, 20, 30, 30, 20, 10, 10,
       50, 50, 50, 50, 50, 50, 50, 50,
        0,  0,  0,  0,  0,  0,  0,  0];
-      
-
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum SearchType {
@@ -78,7 +76,7 @@ pub struct Engine {
     active: bool,
     mode: SearchType,
     best_move: Option<Move>,
-    position_count: i32
+    position_count: i32,
 }
 
 trait Evaluate {
@@ -86,17 +84,16 @@ trait Evaluate {
 }
 
 fn mat_score(mat_side: &MaterialSide) -> i32 {
-    mat_side.pawns as i32 * 100 + 
-        mat_side.knights as i32 * 300 +
-        mat_side.bishops as i32 * 300 +
-        mat_side.rooks as i32 * 500 +
-        mat_side.queens as i32 * 900
+    mat_side.pawns as i32 * 100
+        + mat_side.knights as i32 * 300
+        + mat_side.bishops as i32 * 300
+        + mat_side.rooks as i32 * 500
+        + mat_side.queens as i32 * 900
 }
 
 fn loc_score(board: &Board) -> i32 {
     let mut total_score: i32 = 0;
     for (square, piece) in board.pieces() {
-
         //eprintln!("{} {:?} {:?}", square, piece, piece.color);
 
         let idx = match piece.color {
@@ -105,15 +102,14 @@ fn loc_score(board: &Board) -> i32 {
         };
 
         let score = match piece.role {
-            Role::Pawn => pawn_value[idx],
-            Role::Knight => knight_value[idx],
-            Role::Bishop => bishop_value[idx],
-            Role::Rook => rook_value[idx],
-            Role::Queen => queen_value[idx],
-            Role::King => king_value[idx]
+            Role::Pawn => PAWN_VALUE[idx],
+            Role::Knight => KNIGHT_VALUE[idx],
+            Role::Bishop => BISHOP_VALUE[idx],
+            Role::Rook => ROOK_VALUE[idx],
+            Role::Queen => QUEEN_VALUE[idx],
+            Role::King => KING_VALUE[idx],
         };
 
-        
         //eprintln!("Idx {}  Color {:?}  Score {}\n", idx, piece, score);
 
         total_score += match piece.color {
@@ -125,13 +121,11 @@ fn loc_score(board: &Board) -> i32 {
 }
 
 impl Evaluate for Chess {
-
     fn evaluate(&self) -> i32 {
         let board = self.board();
         let material = board.material();
         //eprintln!("{}\n{}", material.white, material.black);
-        self::mat_score(&material.white) - self::mat_score(&material.black)
-            + self::loc_score(board)
+        self::mat_score(&material.white) - self::mat_score(&material.black) + self::loc_score(board)
     }
 }
 
@@ -158,8 +152,8 @@ impl Engine {
         let moves = self.position.legals();
 
         if self.best_move.is_none() {
-            self.best_move = Some(moves[(thread_rng().gen::<f64>() *
-                    moves.len() as f64) as usize].clone());
+            self.best_move =
+                Some(moves[(thread_rng().gen::<f64>() * moves.len() as f64) as usize].clone());
         }
     }
 
@@ -182,7 +176,6 @@ impl Engine {
                     panic!();
                 }
             }
-
         }
     }
 
@@ -225,11 +218,11 @@ impl Engine {
             }
         }
 
-        return (best_move, lower)
+        (best_move, lower)
     }
 
     fn searchmin(&mut self, position: Chess, mut upper: i32, mut lower: i32,
-                 depth:i32) -> (Option<Move>, i32) {
+                 depth: i32) -> (Option<Move>, i32) {
         self.position_count += 1;
         eprintln!("{} {:?}", depth, position.turn());
         match position.outcome() {
@@ -268,11 +261,8 @@ impl Engine {
             }
         }
 
-        return (best_move, upper)
+        (best_move, upper)
     }
-
-
-
 
     pub fn set_search_type(&mut self, mode: SearchType) {
         self.mode = mode;
@@ -313,46 +303,49 @@ mod tests {
         let mut pos = Chess::default();
         assert_eq!(0, loc_score(pos.board()));
 
-        pos = pos.play(&Move::Normal {
-            role: Role::Pawn,
-            from: Square::E2,
-            to: Square::E4,
-            capture: None,
-            promotion: None,
-        }).expect("Test move fail");
+        pos = pos
+            .play(&Move::Normal {
+                role: Role::Pawn,
+                from: Square::E2,
+                to: Square::E4,
+                capture: None,
+                promotion: None,
+            })
+            .expect("Test move fail");
 
         assert_eq!(40, loc_score(pos.board()));
 
-        pos = pos.play(&Move::Normal {
-            role: Role::Pawn,
-            from: Square::E7,
-            to: Square::E5,
-            capture: None,
-            promotion: None,
-        }).expect("Test move fail");
+        pos = pos
+            .play(&Move::Normal {
+                role: Role::Pawn,
+                from: Square::E7,
+                to: Square::E5,
+                capture: None,
+                promotion: None,
+            })
+            .expect("Test move fail");
 
-        pos = pos.play(&Move::Normal {
-            role: Role::Pawn,
-            from: Square::F2,
-            to: Square::F4,
-            capture: None,
-            promotion: None,
-        }).expect("Test move fail");
+        pos = pos
+            .play(&Move::Normal {
+                role: Role::Pawn,
+                from: Square::F2,
+                to: Square::F4,
+                capture: None,
+                promotion: None,
+            })
+            .expect("Test move fail");
 
-        pos = pos.play(&Move::Normal {
-            role: Role::Pawn,
-            from: Square::E5,
-            to: Square::F4,
-            capture: Some(Role::Pawn),
-            promotion: None,
-        }).expect("Test move fail");
+        pos = pos
+            .play(&Move::Normal {
+                role: Role::Pawn,
+                from: Square::E5,
+                to: Square::F4,
+                capture: Some(Role::Pawn),
+                promotion: None,
+            })
+            .expect("Test move fail");
 
         assert_eq!(0, loc_score(pos.board()));
         assert_eq!(-100, pos.evaluate());
-
-
-
-
-
     }
 }

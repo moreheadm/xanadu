@@ -1,6 +1,6 @@
 use shakmaty::{Chess, Position};
-mod runner;
 mod engine;
+mod runner;
 
 use crate::runner::Runner;
 

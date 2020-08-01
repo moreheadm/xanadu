@@ -1,11 +1,10 @@
-
-use std::io;
-use std::io::BufRead;
-use std::str::Split;
-use shakmaty::{Chess, Position, Move};
 use shakmaty::fen;
 use shakmaty::uci::Uci;
+use shakmaty::{Chess, Move, Position};
+use std::io;
+use std::io::BufRead;
 use std::str::FromStr;
+use std::str::Split;
 
 use super::engine;
 use super::engine::Engine;
@@ -27,10 +26,10 @@ fn get_fen_string(tokens: &mut Split<char>) -> String {
             Some(fen_part) => {
                 if !first { fen_string.push(' ') }
                 fen_string.push_str(fen_part);
-            },
+            }
         }
         first = false;
-    };
+    }
     fen_string
 }
 
@@ -42,7 +41,7 @@ pub struct Runner {
 impl Runner {
     pub fn new() -> Runner {
         Runner {
-            engine: Engine::default()
+            engine: Engine::default(),
         }
     }
 
@@ -109,7 +108,6 @@ impl Runner {
 
     fn cleanup(&mut self) {
         eprintln!("Exiting xanadu");
-
     }
 
     fn uci_cmd(&mut self) {
@@ -141,7 +139,7 @@ impl Runner {
             Some("startpos") => {
                 tokens.next(); // consume "moves"
                 Chess::default()
-            },
+            }
             Some(fen_start) => {
                 let fen_string = get_fen_string(tokens);
 
@@ -155,12 +153,11 @@ impl Runner {
                         }
                     },
                     Err(err) => {
-                        eprintln!("Invalid fen string {}", err); 
+                        eprintln!("Invalid fen string {}", err);
                         return;
-                    },
+                    }
                 }
-
-            },
+            }
             None => {
                 eprintln!("Invalid position command");
                 return;
@@ -169,8 +166,10 @@ impl Runner {
 
         for uci_str in tokens {
             //eprintln!("{}", uci_str);
-            let mov = Uci::from_str(uci_str).expect("Invalid UCI str").
-                    to_move(&position).expect("Invalid UCI move");
+            let mov = Uci::from_str(uci_str)
+                .expect("Invalid UCI str")
+                .to_move(&position)
+                .expect("Invalid UCI move");
 
             position = position.play(&mov).expect("Illegal move");
         }
@@ -194,7 +193,7 @@ impl Runner {
                     "movetime" => (),
                     "infinite" => {
                         self.engine.set_search_type(engine::SearchType::Infinite);
-                    },
+                    }
                     _ => eprintln!("Unknown go argument"),
                 },
                 None => break,
@@ -206,23 +205,19 @@ impl Runner {
 
     fn stop_cmd(&mut self, tokens: &mut Split<char>) {
         let best_move = self.engine.get_best_move();
-        match best_move { 
+        match best_move {
             Some(m) => output_best_move(self.engine.get_current_position(), m),
             None => (),
         }
         self.engine.deactivate();
     }
 
-    
-
     fn ponderhit_cmd(&mut self, tokens: &mut Split<char>) {
         eprintln!("ponderhit unsupported, ignoring");
     }
-
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-
 }
