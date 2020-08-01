@@ -173,7 +173,7 @@ impl Engine {
                 Color::White => self.searchmax(self.position.clone(), upper, lower, 2),
                 Color::Black => self.searchmin(self.position.clone(), upper, lower, 2),
             };
-            eprintln!("{}", self.position_count);
+            eprintln!("Position count: {}", self.position_count);
 
             match mov {
                 Some(mov) => self.best_move = Some(mov),
@@ -207,9 +207,9 @@ impl Engine {
 
         let mut best_move: Option<Move> = None;
 
-        for mov in moves {  
+        for mov in moves {
             eprintln!("Depth: {}  Move: {}", depth, mov);
-            let mut next_position = self.position.clone();
+            let mut next_position = position.clone();
             next_position.play_unchecked(&mov);
 
             let eval = self.searchmin(next_position, upper, lower, depth - 1).1;
@@ -250,7 +250,7 @@ impl Engine {
 
         let mut best_move: Option<Move> = None;
 
-        for mov in moves {  
+        for mov in moves {
             eprintln!("Depth: {}  Move: {}", depth, mov);
             let mut next_position = position.clone();
             next_position.play_unchecked(&mov);
