@@ -1,6 +1,8 @@
-use shakmaty::{Chess, Move, Position, Setup, Color, Material, MaterialSide,
-        Outcome, Piece, Role, Board};
+//use shakmaty::{Chess, Move, Position, Setup, Color, Material, MaterialSide,
+//        Outcome, Piece, Role, Board};
+use chess::{Board, ChessMove, Square, Piece, BitBoard};
 use rand::prelude::*;
+use arrayvec::ArrayVec;
 
 //https://www.chessprogramming.org/Simplified_Evaluation_Function
 
@@ -72,11 +74,11 @@ pub enum SearchType {
 }
 
 pub struct Engine {
-    position: Chess,
+    position: Board,
     active: bool,
     mode: SearchType,
-    best_move: Option<Move>,
-    position_count: i32,
+    best_move: Option<ChessMove>,
+    position_count: i64,
 }
 
 trait Evaluate {
@@ -91,28 +93,53 @@ fn mat_score(mat_side: &MaterialSide) -> i32 {
         + mat_side.queens as i32 * 900
 }
 
+struct Pieces(&Board);
+
+impl IntoIterator for Pieces {
+    type Item = (Square, Piece, Color);
+    type IntoIter = ArrayVec<[Self::Item; 32]>::IntoIter;
+
+    fn into_iter(&self) -> Self::IntoIter {
+        let v = Self::IntoIter::new();
+        let bb = self.0.combined();
+        for square in ALL_SQUARES {
+            match board.piece_on(square) {
+                Some(piece) => v.push((square, piece, board.color_on(square).unwrap())),
+                None => {}
+            }
+        }
+
+        v
+    }
+}
+
+#[inline]
+fn mirror(square: Square) {
+    Square(0x38 ^ square.0)
+}
+
 fn loc_score(board: &Board) -> i32 {
     let mut total_score: i32 = 0;
-    for (square, piece) in board.pieces() {
+    for (square, piece, color) in Pieces(board) {
         //eprintln!("{} {:?} {:?}", square, piece, piece.color);
 
-        let idx = match piece.color {
-            Color::Black => 0x38 ^ usize::from(square),
-            Color::White => usize::from(square),
+        let idx = match color {
+            Color::Black => mirror(square.to_index()),
+            Color::White => square.to_index(),
         };
 
         let score = match piece.role {
-            Role::Pawn => PAWN_VALUE[idx],
-            Role::Knight => KNIGHT_VALUE[idx],
-            Role::Bishop => BISHOP_VALUE[idx],
-            Role::Rook => ROOK_VALUE[idx],
-            Role::Queen => QUEEN_VALUE[idx],
-            Role::King => KING_VALUE[idx],
+            Piece::Pawn => PAWN_VALUE[idx],
+            Piece::Knight => KNIGHT_VALUE[idx],
+            Piece::Bishop => BISHOP_VALUE[idx],
+            Piece::Rook => ROOK_VALUE[idx],
+            Piece::Queen => QUEEN_VALUE[idx],
+            Piece::King => KING_VALUE[idx],
         };
 
         //eprintln!("Idx {}  Color {:?}  Score {}\n", idx, piece, score);
 
-        total_score += match piece.color {
+        total_score += match color {
             Color::White => score,
             Color::Black => -score,
         };
@@ -130,7 +157,7 @@ impl Evaluate for Chess {
 }
 
 impl Engine {
-    pub fn set_position(&mut self, position: Chess) {
+    pub fn set_position(&mut self, position: Board) {
         self.position = position;
     }
 
@@ -164,37 +191,34 @@ impl Engine {
         if self.best_move.is_none() {
             self.position_count = 0;
             let (mov, eval) = match self.position.turn() {
-                Color::White => self.searchmax(self.position.clone(), upper, lower, 2),
-                Color::Black => self.searchmin(self.position.clone(), upper, lower, 2),
+                Color::White => self.searchmax(self.position.clone(), upper, lower, 4),
+                Color::Black => self.searchmin(self.position.clone(), upper, lower, 4),
             };
             eprintln!("Position count: {}", self.position_count);
 
             match mov {
                 Some(mov) => self.best_move = Some(mov),
                 None => {
-                    eprintln!("Expected move");
-                    panic!();
+                    self.best_move = Some(self.position.legals()[0].clone())
+                    //eprintln!("Expected move");
+                    //panic!();
                 }
             }
         }
     }
 
-    fn searchmax(&mut self, position: Chess, mut upper: i32, mut lower: i32,
-                 depth: i32) -> (Option<Move>, i32) {
+    fn searchmax(&mut self, position: Chess, mut upper: i32, mut lower: i32, depth: i32)
+                 -> (Option<Move>, i32) {
         self.position_count += 1;
         eprintln!("{} {:?}", depth, position.turn());
         match position.outcome() {
-            Some(Outcome::Decisive { winner: Color::White }) =>
-                return (None, i32::max_value()),
-            Some(Outcome::Decisive { winner: Color::Black }) =>
-                return (None, i32::min_value()),
+            Some(Outcome::Decisive { winner: Color::White }) => return (None, i32::max_value()),
+            Some(Outcome::Decisive { winner: Color::Black }) => return (None, i32::min_value()),
             Some(Outcome::Draw) => return (None, 0),
             None => (),
         }
 
-        if depth == 0 {
-            return (None, position.evaluate());
-        }
+        if depth == 0 { return (None, position.evaluate()); }
 
         let moves = position.legals();
 
@@ -221,8 +245,8 @@ impl Engine {
         (best_move, lower)
     }
 
-    fn searchmin(&mut self, position: Chess, mut upper: i32, mut lower: i32,
-                 depth: i32) -> (Option<Move>, i32) {
+    fn searchmin(&mut self, position: Chess, mut upper: i32, mut lower: i32, depth: i32)
+                 -> (Option<Move>, i32) {
         self.position_count += 1;
         eprintln!("{} {:?}", depth, position.turn());
         match position.outcome() {

@@ -1,3 +1,0 @@
-fn_args_layout = "Compressed"
-width_heuristics = "Max"
-edition = "2018"
